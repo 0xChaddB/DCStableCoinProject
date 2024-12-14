@@ -124,9 +124,7 @@ contract GSCEngine is ReentrancyGuard {
         address tokenCollateralAddress, 
         uint256 amountCollateral, 
         uint256 amountGscToMint
-        ) 
-        external 
-    {
+    ) external {
         depositCollateral(tokenCollateralAddress, amountCollateral);
         mintGsc(amountGscToMint);
     }
@@ -187,6 +185,8 @@ contract GSCEngine is ReentrancyGuard {
     then we wouldn't be able to incentive the liquidators
     * For exemple, if the price of the collateral plummeted before anyone could be liquidated.
     */
+
+
     function liquidate(address collateral, address user, uint256 debtToCover) 
         external 
         moreThanZero(debtToCover) 
@@ -260,9 +260,8 @@ contract GSCEngine is ReentrancyGuard {
 
 
     /*
-    * Low-level internal function, do not call unless the functio calling it is checking
-    for health factors being broken
-    *
+    * @dev Low-level internal function, do not call unless the functio calling it is checking
+    * for health factors being broken
     */
     function _burnGsc(uint256 amountGscToBurn, address onBehalfOf, address gscFrom) private {
         s_GSCMinted[onBehalfOf] -= amountGscToBurn;

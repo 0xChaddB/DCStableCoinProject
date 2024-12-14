@@ -45,4 +45,5 @@ contract GorillaStableCoin is ERC20Burnable, Ownable {
         _mint(_to, _amount);
         return true;
     }
+    
 }
