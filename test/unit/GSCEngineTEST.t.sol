@@ -8,39 +8,73 @@ import {DeployGSC} from "../../script/DeployGSC.s.sol";
 import {GorillaStableCoin} from "../../src/GorillaStableCoin.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {ERC20Mock} from "../../lib/chainlink-brownie-contracts/contracts/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
+import { MockV3Aggregator } from "../mocks/MockV3Aggregator.sol";
 
 contract GSCEngineTest is Test {
+
     DeployGSC deployer;
     GorillaStableCoin gsc;
     GSCEngine gscEngine;
     HelperConfig helperConfig;
+
     address ethUsdPriceFeed;
+    address btcUsdPriceFeed;
     address weth;
 
-    address public USER = makeAddr("user");
-    uint256 public constant AMOUNT_COLLATERAL = 10 ether;
-    uint256 public constant STARTING_ERC20_BALANCE = 10 ether;
+    uint256 amountToMint = 100 ether;
+    uint256 AMOUNT_COLLATERAL = 10 ether;
 
+    address public USER = makeAddr("user");
+    uint256 public constant STARTING_ERC20_BALANCE = 10 ether;
+    uint256 public constant GSC_TO_MINT = 5 ether;
+
+    uint256 public constant STARTING_USER_BALANCE = 10 ether;
+    uint256 public constant MIN_HEALTH_FACTOR = 1e18;
+    uint256 public constant LIQUIDATION_THRESHOLD = 50;
 
     function setUp() public {
         deployer = new DeployGSC();
         (gsc, gscEngine, helperConfig) = deployer.run();
-        (ethUsdPriceFeed,, weth,,) = helperConfig.activeNetworkConfig();
+        (ethUsdPriceFeed, btcUsdPriceFeed, weth,,) = helperConfig.activeNetworkConfig();
 
         ERC20Mock(weth).mint(USER, STARTING_ERC20_BALANCE);
     }
 
+
+    ///////////////////////
+    // Constructor Tests //
+    ///////////////////////
+
+    address[] public tokenAddresses;
+    address[] public priceFeedAddresses;
+
+    function testRevertsIfTokenLenghtDoesntMatchPriceFeeds() public {
+        tokenAddresses.push(weth);
+        priceFeedAddresses.push(ethUsdPriceFeed);
+        priceFeedAddresses.push(btcUsdPriceFeed);
+
+        vm.expectRevert(GSCEngine.GSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength.selector);
+        new GSCEngine(tokenAddresses, priceFeedAddresses, address(gsc));
+    }
 
     ///////////////////
     // Price Tests //
     ///////////////////
 
     function testGetUsdValue() view public {
-        uint256 ethAmount = 15e18; // 15 ETH
+        uint256 ethAmount = 15 ether; 
         //15e18 * 2000/ETH = 30.000e18
         uint256 expectedUsd = 30000e18;
         uint256 actualUsd = gscEngine.getUsdValue(weth, ethAmount);
         assertEq(expectedUsd, actualUsd);
+    }
+
+    function testGetTokenAmountFromUsd() view public {
+        uint256 usdAmount = 100 ether; 
+        // $2000 / ETH, $15
+        uint256 expectedWeth = 0.05 ether;
+        uint256 actualWeth = gscEngine.getTokenAmountFromUsd(weth, usdAmount);
+        assertEq(expectedWeth, actualWeth);
     }
 
     /////////////////////////////
@@ -57,4 +91,94 @@ contract GSCEngineTest is Test {
 
     }
     
+    function testRevertsWithUnapprovedCollateral() public {
+        ERC20Mock ranToken = new ERC20Mock("RAN", "RAN", USER, AMOUNT_COLLATERAL);
+        vm.startPrank(USER);
+        vm.expectRevert(GSCEngine.GSCEngine__NotAllowedToken.selector);
+        gscEngine.depositCollateral(address(ranToken), AMOUNT_COLLATERAL);
+        vm.stopPrank();
+    }
+
+
+    modifier depositedCollateral(){
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(gscEngine), AMOUNT_COLLATERAL);
+        gscEngine.depositCollateral(weth, AMOUNT_COLLATERAL);
+        vm.stopPrank();
+        _;
+    }
+
+    function testDepositCollateral() public depositedCollateral {
+        
+        uint256 depositedAmount = gscEngine.getCollateralDeposited(USER, weth);
+        assertEq(depositedAmount, AMOUNT_COLLATERAL);
+    }
+
+    function testCanDepositCollateralAndGetAccountInfo() public depositedCollateral {
+        (uint256 totalGscMinted, uint256 collateralValueInUsd) = gscEngine.getAccountInformation(USER);
+
+        uint256 expectedTotalGscMinted = 0;
+
+        uint256 expectedDepositAmount = gscEngine.getTokenAmountFromUsd(weth, collateralValueInUsd);
+        assertEq(expectedTotalGscMinted, totalGscMinted);
+        assertEq(AMOUNT_COLLATERAL, expectedDepositAmount);
+    }
+
+
+    ///////////////////////////////////////
+    // depositCollateralAndMintGsc Tests //
+    ///////////////////////////////////////
+
+    function testMintFailsIfHealthFactorBroken() public depositedCollateral {
+
+        (, int256 price,,,) = MockV3Aggregator(ethUsdPriceFeed).latestRoundData();
+        amountToMint = (AMOUNT_COLLATERAL * (uint256(price) * gscEngine.getAdditionalFeedPrecision())) / gscEngine.getPrecision();
+
+        vm.startPrank(USER);
+        uint256 expectedHealthFactor =
+        gscEngine.calculateHealthFactor(amountToMint, gscEngine.getUsdValue(weth,AMOUNT_COLLATERAL));
+        vm.expectRevert(abi.encodeWithSelector(GSCEngine.GSCEngine__BreaksHealthFactor.selector, expectedHealthFactor));
+        gscEngine.mintGsc(amountToMint);
+        vm.stopPrank();
+    }
+
+
+    modifier depositedCollateralAndMintedGsc() {
+        vm.startPrank(USER);
+        ERC20Mock(weth).approve(address(gscEngine), AMOUNT_COLLATERAL);
+        gscEngine.depositCollateralAndMintGsc(weth, AMOUNT_COLLATERAL, amountToMint);
+        vm.stopPrank();
+        _;
+    }
+
+    ///////////////////
+    // mintGsc Tests //
+    ///////////////////
+
+    function testCanMintGsc() public depositedCollateral {
+        vm.prank(USER);
+        gscEngine.mintGsc(GSC_TO_MINT);
+
+        uint256 userBalance = gsc.balanceOf(USER);
+        assertEq(userBalance, GSC_TO_MINT);
+    }
+
+    ///////////////////////
+    // BurnGsc Tests     //
+    ///////////////////////
+
+    function testCanBurnGsc() public depositedCollateralAndMintedGsc {
+        vm.startPrank(USER);
+        gsc.approve(address(gscEngine), amountToMint);
+        gscEngine.burnGsc(amountToMint);
+        vm.stopPrank();
+
+        uint256 userBalance = gsc.balanceOf(USER);
+        assertEq(userBalance, 0);
+    }
+
+
+    
+
+
 }

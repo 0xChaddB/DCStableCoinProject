@@ -7,6 +7,7 @@ import {GorillaStableCoin} from "./GorillaStableCoin.sol";
 import {ReentrancyGuard} from "../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {console} from "forge-std/console.sol";
 
 
 /* 
@@ -38,7 +39,7 @@ contract GSCEngine is ReentrancyGuard {
     error GSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
     error GSCEngine__NotAllowedToken();
     error GSCEngine__TransferFailed();
-    error GSCENGINE__BreaksHealthFactor(uint256 healthFactor);
+    error GSCEngine__BreaksHealthFactor(uint256 healthFactor);
     error GSCEngine__MintFailed();
     error GSCEngine__HealthFactorOk();
     error GSCEngine__HealthFactorNotImproved();
@@ -47,12 +48,13 @@ contract GSCEngine is ReentrancyGuard {
     // State Variable //
     ////////////////////
 
+    uint256 private constant LIQUIDATION_THRESHOLD = 50; // 200% overcollateralized
+    uint256 private constant LIQUIDATION_BONUS = 10; // means 10% bonus for liquidators
+    uint256 private constant LIQUIDATION_PRECISION = 100;
     uint256 private constant ADDITIONAL_FEED_PRECISION = 1e10;
     uint256 private constant PRECISION = 1e18;
-    uint256 private constant LIQUIDATION_TRESHOLD = 50; // 200% overcollateralized
-    uint256 private constant LIQUIDATION_PRECISION = 100;
     uint256 private constant MIN_HEALTH_FACTOR = 1e18;
-    uint256 private constant LIQUIDATION_BONUS = 10; // means 10% bonus for liquidators
+    
 
 
     mapping(address token => address priceFeed) private s_priceFeeds;
@@ -273,6 +275,13 @@ contract GSCEngine is ReentrancyGuard {
         i_gsc.burn(amountGscToBurn);
     }
 
+
+    function _calculateHealthFactor(uint256 totalDscMinted, uint256 collateralValueInUsd) internal pure returns (uint256){
+        if (totalDscMinted == 0) return type(uint256).max;
+        uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+        return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
+    }
+
     function _redeemCollateral(address from, address to, address tokenCollateralAddress, uint256 amountCollateral) private {
         s_collateralDeposited[from][tokenCollateralAddress] -= amountCollateral;
         emit CollateralRedeemed(from, to, tokenCollateralAddress, amountCollateral);
@@ -281,6 +290,7 @@ contract GSCEngine is ReentrancyGuard {
             revert GSCEngine__TransferFailed();
         }
     }
+
     function _getAccountInformation(address user)
         private 
         view 
@@ -297,7 +307,7 @@ contract GSCEngine is ReentrancyGuard {
     function _healthFactor(address user) internal view returns (uint256) {
         //total GSC minted / total collateral VALUE
         (uint256 totalGscMinted, uint256 collateralValueInUsd) = _getAccountInformation(user);
-        uint256 collateralAdjustedForTreshold = (collateralValueInUsd * LIQUIDATION_TRESHOLD) / LIQUIDATION_PRECISION;
+        uint256 collateralAdjustedForTreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
         // $150 ETH / 100 GSC = 1.5
         // 150 * 50 = 7500 
         // 7500/100 = 75
@@ -312,7 +322,7 @@ contract GSCEngine is ReentrancyGuard {
     function _revertIfHealthFactorIsBroken(address user) internal view{
         uint256 userHealthFactor = _healthFactor(user);
         if (userHealthFactor < MIN_HEALTH_FACTOR) {
-            revert GSCENGINE__BreaksHealthFactor(userHealthFactor);
+            revert GSCEngine__BreaksHealthFactor(userHealthFactor);
             
         }
     }   
@@ -334,18 +344,94 @@ contract GSCEngine is ReentrancyGuard {
         for (uint256 i = 0; i < s_collateralTokens.length; i++) {
             address token = s_collateralTokens[i];
             uint256 amount = s_collateralDeposited[user][token];
-            totalCollateralValueInUsd += amount * getUsdValue(token, amount);
+            totalCollateralValueInUsd += getUsdValue(token, amount);
         }
         return totalCollateralValueInUsd;
     }
 
-    function getUsdValue(address token, uint256 amount) public view returns (uint256) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
-        (,int256 price,,,) = priceFeed.latestRoundData();
-        // 1 ETH = $1000
-        // The returned value from CL will be 1000 * 1e8.
-        // ((PRICE * 1e10) * AMOUNT) / 1e18.
-        return ((uint256(price) *ADDITIONAL_FEED_PRECISION) * amount) / PRECISION;
+    function calculateHealthFactor(
+        uint256 totalDscMinted,
+        uint256 collateralValueInUsd
+    )
+        external
+        pure
+        returns (uint256)
+    {
+        return _calculateHealthFactor(totalDscMinted, collateralValueInUsd);
+    }
 
+    function getUsdValue(
+        address token, 
+        uint256 amount
+    ) 
+        public 
+        view 
+        returns (uint256) 
+    {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+        (, int256 price,,,) = priceFeed.latestRoundData();
+
+        uint256 adjustedPrice = uint256(price) * ADDITIONAL_FEED_PRECISION;
+        uint256 usdValue = (adjustedPrice * amount) / PRECISION;
+
+        // DEBUGING
+        console.log("Price from feed:", uint256(price));
+        console.log("Adjusted Price:", adjustedPrice);
+        console.log("Amount (wei):", amount);
+        console.log("USD Value:", usdValue);
+
+        return usdValue;
+    }
+
+    function getAccountInformation(address user) 
+        external 
+        view 
+        returns(uint256 totalGscMinted, uint256 collateralValueInUsd) 
+    {
+        (totalGscMinted, collateralValueInUsd) = _getAccountInformation(user);
+    }
+
+    function getPrecision() external pure returns (uint256) {
+        return PRECISION;
+    }
+
+    function getCollateralDeposited(address user, address token) external view returns (uint256) {
+        return s_collateralDeposited[user][token];
+    }
+
+    function getAdditionalFeedPrecision() external pure returns (uint256) {
+        return ADDITIONAL_FEED_PRECISION;
+    }
+
+    function getLiquidationThreshold() external pure returns (uint256) {
+        return LIQUIDATION_THRESHOLD;
+    }
+
+    function getLiquidationBonus() external pure returns (uint256) {
+        return LIQUIDATION_BONUS;
+    }
+
+    function getLiquidationPrecision() external pure returns (uint256) {
+        return LIQUIDATION_PRECISION;
+    }
+
+    function getMinHealthFactor() external pure returns (uint256) {
+        return MIN_HEALTH_FACTOR;
+    }
+
+    function getCollateralTokens() external view returns (address[] memory) {
+        return s_collateralTokens;
+    }
+
+    function getGsc() external view returns (address) {
+        return address(i_gsc);
+    }
+
+    function getCollateralTokenPriceFeed(address token) external view returns (address) {
+        return s_priceFeeds[token];
+    }
+
+    function getHealthFactor(address user) external view returns (uint256) {
+        return _healthFactor(user);
     }
 }
