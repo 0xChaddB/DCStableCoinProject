@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.20;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {GSCEngine} from "../../src/GSCEngine.sol";
 import {DeployGSC} from "../../script/DeployGSC.s.sol";
 import {GorillaStableCoin} from "../../src/GorillaStableCoin.sol";
@@ -169,16 +169,54 @@ contract GSCEngineTest is Test {
 
     function testCanBurnGsc() public depositedCollateralAndMintedGsc {
         vm.startPrank(USER);
-        gsc.approve(address(gscEngine), amountToMint);
-        gscEngine.burnGsc(amountToMint);
-        vm.stopPrank();
 
         uint256 userBalance = gsc.balanceOf(USER);
-        assertEq(userBalance, 0);
+        console.log("Initial User Balance:", userBalance);
+
+        // Verify healthFactor before burning
+        uint256 initialHealthFactor = gscEngine.getHealthFactor(USER);
+        console.log("Initial Health Factor:", initialHealthFactor);
+
+
+        // Approve tokens if required
+        gsc.approve(address(gscEngine), amountToMint);
+
+        // Call burn function
+        console.log("Calling burnGsc with amount:", amountToMint);
+        gscEngine.burnGsc(amountToMint);
+
+        vm.stopPrank();
+
+        // Check final balance
+        uint256 finalUserBalance = gsc.balanceOf(USER);
+        console.log("Final User Balance:", finalUserBalance);
+        assertEq(finalUserBalance, 0);
     }
-
-
     
+    // Quick test refresher (without modifier)
+    function testCanDepositAndMintAndBurnGsc() public {
+        // Simulate a user
+        vm.startPrank(USER);
 
+        // Do i Need to Approve transfer 
 
+        // Deposit Collateral and mint GSC
+        gscEngine.depositCollateralAndMintGsc(weth, AMOUNT_COLLATERAL, amountToMint);
+
+        // Verify state after minting
+        (uint256 mintedAmount, ) = gscEngine.getAccountInformation(USER);
+        console.log("GSC Minted:", mintedAmount);
+
+        // Burn GSC
+        gsc.approve(address(gscEngine), amountToMint);
+        console.log("Burning GSC...");
+        gscEngine.burnGsc(amountToMint);
+
+        // Verify balance = 0 after burn
+        uint256 finalBalance = gsc.balanceOf(USER);
+        console.log("Final GSC Balance:", finalBalance);
+        assertEq(finalBalance, 0);
+
+        vm.stopPrank();
+    }
 }

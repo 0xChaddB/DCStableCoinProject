@@ -128,7 +128,16 @@ contract GSCEngine is ReentrancyGuard {
         uint256 amountGscToMint
     ) external {
         depositCollateral(tokenCollateralAddress, amountCollateral);
+        // TESTS
+        console.log("Collateral Deposited for User:", msg.sender);
+        console.log("Token Address:", tokenCollateralAddress);
+        console.log("Collateral Amount:", amountCollateral);
+
         mintGsc(amountGscToMint);
+
+        console.log("GSC Minted for User:", msg.sender);
+        console.log("Minted Amount:", amountGscToMint);
+        console.log("Updated Total GSC Minted:", s_GSCMinted[msg.sender]);
     }
 
 
@@ -173,6 +182,9 @@ contract GSCEngine is ReentrancyGuard {
         _revertIfHealthFactorIsBroken(msg.sender); //I don't thinks this would ever hit ....
     }
     // If someone is almost undercollateralized, we will pay you to liquidate them!
+
+
+
 
     /*
     * @param collateral The ERC20 collateral address to liquidate from the user
@@ -233,6 +245,12 @@ contract GSCEngine is ReentrancyGuard {
     // Check if the collateral value > GSC amount. Price feeds, values, etc
     function mintGsc(uint256 amountGscToMint) public moreThanZero(amountGscToMint) nonReentrant {
         s_GSCMinted[msg.sender] += amountGscToMint;
+        
+        // TESTS
+        console.log("Mint GSC called by User:", msg.sender);
+        console.log("Amount Minted:", amountGscToMint);
+        console.log("Total GSC Minted (after update):", s_GSCMinted[msg.sender]);
+
         //if they minted too much ($150 GSC, $100 ETH)
         _revertIfHealthFactorIsBroken(msg.sender);
         bool minted = i_gsc.mint(msg.sender, amountGscToMint);
@@ -254,15 +272,13 @@ contract GSCEngine is ReentrancyGuard {
         }
     }
 
-    function getHealthFactor() external view returns (uint256) {}
-
     ////////////////////////////////////////
     // Private & Internal View Functions  //
     ////////////////////////////////////////
 
 
     /*
-    * @dev Low-level internal function, do not call unless the functio calling it is checking
+    * @dev Low-level internal function, do not call unless the function calling it is checking
     * for health factors being broken
     */
     function _burnGsc(uint256 amountGscToBurn, address onBehalfOf, address gscFrom) private {
@@ -307,6 +323,9 @@ contract GSCEngine is ReentrancyGuard {
     function _healthFactor(address user) internal view returns (uint256) {
         //total GSC minted / total collateral VALUE
         (uint256 totalGscMinted, uint256 collateralValueInUsd) = _getAccountInformation(user);
+        // if (totalGscMinted == 0) {
+        //     return type(uint256).max;
+        // }
         uint256 collateralAdjustedForTreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
         // $150 ETH / 100 GSC = 1.5
         // 150 * 50 = 7500 
@@ -374,11 +393,7 @@ contract GSCEngine is ReentrancyGuard {
         uint256 adjustedPrice = uint256(price) * ADDITIONAL_FEED_PRECISION;
         uint256 usdValue = (adjustedPrice * amount) / PRECISION;
 
-        // DEBUGING
-        console.log("Price from feed:", uint256(price));
-        console.log("Adjusted Price:", adjustedPrice);
-        console.log("Amount (wei):", amount);
-        console.log("USD Value:", usdValue);
+
 
         return usdValue;
     }
