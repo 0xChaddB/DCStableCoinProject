@@ -62,7 +62,7 @@ GorillaStableCoin is built on a robust foundation using the following tools and 
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/<your-github-username>/gorilla-stablecoin.git
+   git clone https://github.com/0xChaddB/gorilla-stablecoin.git
    cd gorilla-stablecoin
    ```
 
@@ -123,5 +123,5 @@ We welcome contributions from the community! Please open an issue or submit a pu
 
 ## Contact 🦍
 For questions or support, reach out to:
-- **Email**: gorilla-support@example.com
-- **GitHub Issues**: [Issues Page](https://github.com/<your-github-username>/gorilla-stablecoin/issues)
+- **Email**: 0xChaddB@proton.me
+- **GitHub Issues**: [Issues Page](https://github.com/0xChaddB/gorilla-stablecoin/issues)
