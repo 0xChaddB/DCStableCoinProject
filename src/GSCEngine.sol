@@ -323,9 +323,9 @@ contract GSCEngine is ReentrancyGuard {
     function _healthFactor(address user) internal view returns (uint256) {
         //total GSC minted / total collateral VALUE
         (uint256 totalGscMinted, uint256 collateralValueInUsd) = _getAccountInformation(user);
-        // if (totalGscMinted == 0) {
-        //     return type(uint256).max;
-        // }
+        if (totalGscMinted == 0) {
+            return type(uint256).max;
+        }
         uint256 collateralAdjustedForTreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
         // $150 ETH / 100 GSC = 1.5
         // 150 * 50 = 7500 
