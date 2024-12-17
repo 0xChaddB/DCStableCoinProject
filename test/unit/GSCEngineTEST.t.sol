@@ -194,14 +194,9 @@ contract GSCEngineTest is Test {
     }
     
     // Quick test refresher (without modifier)
-    function testCanDepositAndMintAndBurnGsc() public {
+    function testCanDepositAndMintAndBurnGsc() public depositedCollateralAndMintedGsc{
         // Simulate a user
         vm.startPrank(USER);
-
-        // Do i Need to Approve transfer 
-
-        // Deposit Collateral and mint GSC
-        gscEngine.depositCollateralAndMintGsc(weth, AMOUNT_COLLATERAL, amountToMint);
 
         // Verify state after minting
         (uint256 mintedAmount, ) = gscEngine.getAccountInformation(USER);
