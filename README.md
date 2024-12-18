@@ -2,6 +2,15 @@
 
 # 🚧👷 WORK IN PROGRESS 🚧⚠️ #
 
+////////////////////////////////
+
+TO DO : - MORE FEATURES (Vault ? Swap? Lending? ???????????????????)
+        - MORE TEST MORE FUZZING 
+        - MORE LEARNING 
+
+////////////////////////////////     
+
+
 # GorillaStableCoin 🦍🍌💰
 
 GorillaStableCoin (GSC) is an algorithmic stablecoin designed to maintain a **relative stability** pegged to $1.00. Built using cutting-edge blockchain technologies, GSC provides a robust mechanism for decentralized minting, leveraging collateralized assets and Chainlink price feeds to ensure reliability and transparency.
