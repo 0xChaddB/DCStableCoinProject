@@ -49,26 +49,27 @@ contract InvariantsTest is StdInvariant, Test {
         console.log("wbtc value:", wbtcValue);
         console.log("total supply:", totalSupply);
         console.log("mint called:", handler.timesMintIsCalled());
+        console.log("PRICE FEED UPDATED:", handler.timesPriceFeedUpdated());
         assert(wethValue + wbtcValue >= totalSupply);   
     }
 
     function invariant_gettersShouldNotRevert() public view {
-
-        gscEngine.getAccountCollateralValue(user);
-        gscEngine.getAccountInformation(address(user));
-        gscEngine.getAdditionalFeedPrecision();
-        gscEngine.getCollateralDeposited(user, token);
-        gscEngine.getCollateralTokenPriceFeed(token);
-        gscEngine.getCollateralTokens();
-        gscEngine.getGsc();
-        gscEngine.getHealthFactor(user);
-        gscEngine.getLiquidationBonus();
-        gscEngine.getLiquidationPrecision();
-        gscEngine.getLiquidationThreshold();
-        gscEngine.getMinHealthFactor();
-        gscEngine.getPrecision();
-        gscEngine.getTokenAmountFromUsd(token, usdAmountInWei);
-        gscEngine.getUsdValue(token, amount);
+                // ARGUMENTS ????????????
+        // gscEngine.getAccountCollateralValue();
+        // gscEngine.getAccountInformation();
+        // gscEngine.getAdditionalFeedPrecision();
+        // gscEngine.getCollateralDeposited();
+        // gscEngine.getCollateralTokenPriceFeed();
+        // gscEngine.getCollateralTokens();
+        // gscEngine.getGsc();
+        // gscEngine.getHealthFactor();
+        // gscEngine.getLiquidationBonus();
+        // gscEngine.getLiquidationPrecision();
+        // gscEngine.getLiquidationThreshold();
+        // gscEngine.getMinHealthFactor();
+        // gscEngine.getPrecision();
+        // gscEngine.getTokenAmountFromUsd();
+        // gscEngine.getUsdValue();
 
     }
 

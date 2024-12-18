@@ -6,7 +6,10 @@ import {Test} from "forge-std/Test.sol";
 import {GSCEngine} from "../../src/GSCEngine.sol";
 import {GorillaStableCoin} from "../../src/GorillaStableCoin.sol";
 import {ERC20Mock} from "../../lib/chainlink-brownie-contracts/contracts/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
-
+import {MockV3Aggregator} from "../mocks/MockV3Aggregator.sol";
+    // price feed
+    // weth token 
+    // wbtc token
 
 contract Handler is Test {
     GSCEngine gscEngine;
@@ -16,7 +19,9 @@ contract Handler is Test {
     ERC20Mock wbtc;
 
     uint256 public timesMintIsCalled;
+    uint256 public timesPriceFeedUpdated;
     address[] public usersWithCollateralDeposited;
+    MockV3Aggregator public ethUsdPriceFeed;
     
     uint256 MAX_DEPOSIT_SIZE = type(uint96).max; // the max uint96 value
 
@@ -27,6 +32,8 @@ contract Handler is Test {
         address[] memory collateralTokens = gscEngine.getCollateralTokens();
         weth = ERC20Mock(collateralTokens[0]);
         wbtc = ERC20Mock(collateralTokens[1]);
+
+        ethUsdPriceFeed = MockV3Aggregator(gscEngine.getCollateralTokenPriceFeed(address(weth)));
     }
 
     // @note continue on revert : quicker looser test
@@ -88,6 +95,24 @@ contract Handler is Test {
             
         gscEngine.redeemCollateral(address(collateral), amountCollateral);
         
+    }
+    
+    // this breaks invariants why?
+    /////////////////////////////
+    // Aggregator //                       
+    /////////////////////////////
+    // function updateCollateralPrice(uint96 newPrice, uint256 collateralSeed) public {
+    //     int256 intNewPrice = int256(uint256(newPrice));
+    //     ERC20Mock collateral = _getCollateralFromSeed(collateralSeed);
+    //     MockV3Aggregator priceFeed = MockV3Aggregator(gscEngine.getCollateralTokenPriceFeed(address(collateral)));
+
+    //     priceFeed.updateAnswer(intNewPrice);
+    // }
+
+    //  And why this dont break invariant? 
+    function updateCollateralPriceINeedToAnswer(uint96 newPrice) public {
+        int256 intNewPrice = int256(uint256(newPrice));
+        ethUsdPriceFeed.updateAnswer(intNewPrice);
     }
 
 

@@ -192,12 +192,12 @@ contract GSCEngineTest is Test {
         console.log("Final User Balance:", finalUserBalance);
         assertEq(finalUserBalance, 0);
     }
-    
+
     // Quick test refresher (without modifier)
     function testCanDepositAndMintAndBurnGsc() public depositedCollateralAndMintedGsc{
         // Simulate a user
         vm.startPrank(USER);
-
+        
         // Verify state after minting
         (uint256 mintedAmount, ) = gscEngine.getAccountInformation(USER);
         console.log("GSC Minted:", mintedAmount);
