@@ -8,6 +8,7 @@ import {ReentrancyGuard} from "../lib/openzeppelin-contracts/contracts/utils/Ree
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "../lib/chainlink-brownie-contracts/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {console} from "forge-std/console.sol";
+import {OracleLib} from "./libraries/OracleLib.sol";
 
 
 /* 
@@ -43,6 +44,12 @@ contract GSCEngine is ReentrancyGuard {
     error GSCEngine__MintFailed();
     error GSCEngine__HealthFactorOk();
     error GSCEngine__HealthFactorNotImproved();
+
+    //////////////
+    // Types   //
+    /////////////
+
+    using OracleLib for AggregatorV3Interface;
 
     /////////////////////
     // State Variable //
@@ -388,7 +395,7 @@ contract GSCEngine is ReentrancyGuard {
         returns (uint256) 
     {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
-        (, int256 price,,,) = priceFeed.latestRoundData();
+        (, int256 price,,,) = priceFeed.staleCheckLatestRoundData();
 
         uint256 adjustedPrice = uint256(price) * ADDITIONAL_FEED_PRECISION;
         uint256 usdValue = (adjustedPrice * amount) / PRECISION;
