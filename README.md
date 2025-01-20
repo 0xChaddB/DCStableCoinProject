@@ -2,14 +2,6 @@
 
 # 🚧👷 WORK IN PROGRESS 🚧⚠️ #
 
-////////////////////////////////
-
-TO DO : - MORE FEATURES (Vault ? Swap? Lending? ???????????????????)
-        - MORE TEST MORE FUZZING 
-        - MORE LEARNING 
-
-////////////////////////////////     
-
 
 # GorillaStableCoin 🦍🍌💰
 
